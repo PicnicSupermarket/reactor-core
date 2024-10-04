@@ -216,4 +216,41 @@ final class Traces {
 			}
 		};
 	}
+
+	static final class AssemblyInformation {
+		private final String[] stackFrames;
+		private final String operator;
+
+		private AssemblyInformation(String[] stackFrames, String operator) {
+			this.operator = operator;
+			this.stackFrames = stackFrames;
+		}
+
+		static AssemblyInformation fromStackFrames(String[] stackFrames) {
+			return new AssemblyInformation(stackFrames, operatorFromStackFrames(stackFrames));
+		}
+
+		static AssemblyInformation fromOperator(String operator) {
+			return new AssemblyInformation(new String[]{operator}, operator);
+		}
+
+		private static String operatorFromStackFrames(String[] stackFrames) {
+			if (stackFrames.length == 0) {
+				return "[no operator assembly information]";
+			}
+			String operator = stackFrames[0];
+			if (stackFrames.length == 1) {
+				return operator;
+			}
+			return operator + CALL_SITE_GLUE + stackFrames[1];
+		}
+
+		String[] stackFrames() {
+			return stackFrames;
+		}
+
+		String operator() {
+			return operator;
+		}
+	}
 }
