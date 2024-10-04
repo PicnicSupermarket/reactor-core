@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 VMware Inc. or its affiliates, All Rights Reserved.
+ * Copyright (c) 2017-2024 VMware Inc. or its affiliates, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -656,6 +656,25 @@ class FluxOnAssemblyTest {
         assertThat(test.scan(Scannable.Attr.RUN_STYLE)).isSameAs(Scannable.Attr.RunStyle.SYNC);
     }
 
+
+	@Test
+	void subscriberFail() {
+		int baseline = getBaseline();
+		AssemblySnapshot snapshot = new AssemblySnapshot(null, Traces.callSiteSupplierFactory.get());
+		CoreSubscriber<Integer> actual = new LambdaSubscriber<>(null, e -> {}, null, null);
+		FluxOnAssembly.OnAssemblySubscriber<Integer> test =
+			new FluxOnAssembly.OnAssemblySubscriber<>(actual, snapshot, Flux.just(1), Flux.empty());
+		Throwable[] suppressed = test.fail(new IllegalStateException("boom")).getSuppressed();
+		assertThat(suppressed).singleElement()
+			.isInstanceOf(FluxOnAssembly.OnAssemblyException.class)
+			.extracting(Throwable::getMessage).isEqualTo(
+				"\nAssembly trace from producer [reactor.core.publisher.FluxJust] :" +
+					"\n	reactor.core.publisher.FluxOnAssemblyTest.subscriberFail(FluxOnAssemblyTest.java:" + (baseline + 1) + ")" +
+					"\nError has been observed at the following site(s):" +
+					"\n	*__ ⇢ reactor.core.publisher.FluxOnAssemblyTest.subscriberFail(FluxOnAssemblyTest.java:" + (baseline + 1) + ")" +
+					"\nOriginal Stack Trace:");
+	}
+
 	@Test
 	void scanOperator() {
 		Flux<?> source = Flux.empty();
@@ -759,7 +778,6 @@ class FluxOnAssemblyTest {
 	void onAssemblyExeptionSerializable() throws IOException {
 		Hooks.onOperatorDebug();
 		IllegalStateException sharedError = new IllegalStateException("shared");
-		int baseline = getBaseline();
 		Flux<String> source = Flux.error(sharedError);
 		Flux<String> chain1 = source.map(String::toLowerCase).filter(s -> s.length() < 4);
 		Flux<String> chain2 = source.filter(s -> s.length() > 5).map(String::toUpperCase);
