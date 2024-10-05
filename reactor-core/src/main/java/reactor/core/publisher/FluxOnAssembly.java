@@ -353,11 +353,9 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 				}
 				else {
 					AssemblyInformation assemblyInformation = snapshot.toAssemblyInformation();
-					String[] parts = Traces.extractOperatorAssemblyInformationParts(assemblyInformation.asStackTrace());
+					String line = assemblyInformation.location();
 
-					if (parts.length > 0) {
-						//we ignore the first part if there are two (classname and callsite). only use the line part
-						String line = parts[parts.length - 1];
+					if (line != null) {
 						add(parent, current, snapshot.lightPrefix(), line);
 					}
 					else {
