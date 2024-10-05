@@ -221,43 +221,6 @@ final class Traces {
 		};
 	}
 
-	//	static final class AssemblyInformation {
-	//		private final String[] stackFrames;
-	//		private final String operator;
-	//
-	//		private AssemblyInformation(String[] stackFrames, String operator) {
-	//			this.operator = operator;
-	//			this.stackFrames = stackFrames;
-	//		}
-	//
-	//		static AssemblyInformation fromStackFrames(String[] stackFrames) {
-	//			return new AssemblyInformation(stackFrames, operatorFromStackFrames(stackFrames));
-	//		}
-	//
-	//		static AssemblyInformation fromOperator(String operator) {
-	//			return new AssemblyInformation(new String[]{operator}, operator);
-	//		}
-	//
-	//		private static String operatorFromStackFrames(String[] stackFrames) {
-	//			if (stackFrames.length == 0) {
-	//				return "[no operator assembly information]";
-	//			}
-	//			String operator = stackFrames[0];
-	//			if (stackFrames.length == 1) {
-	//				return operator;
-	//			}
-	//			return operator + CALL_SITE_GLUE + stackFrames[1];
-	//		}
-	//
-	//		String[] stackFrames() {
-	//			return stackFrames;
-	//		}
-	//
-	//		String operator() {
-	//			return operator;
-	//		}
-	//	}
-
 	static final class AssemblyInformation {
 		@Nullable
 		private final String operatorStackFrame;
@@ -277,22 +240,13 @@ final class Traces {
 		}
 
 		static AssemblyInformation fromStackFrame(String userCodeStackFrame) {
-			return new AssemblyInformation(null, userCodeStackFrame,
-				//				userCodeStackFrame,
-				// XXX: Replace.
-				Traces.extractOperatorAssemblyInformation(
-					toStackTrace(null, userCodeStackFrame))
-			);
+			return new AssemblyInformation(null, userCodeStackFrame, userCodeStackFrame);
 		}
 
 		static AssemblyInformation fromStackFrames(String operatorStackFrame,
 			String userCodeStackFrame) {
 			return new AssemblyInformation(operatorStackFrame, userCodeStackFrame,
-				//				operatorStackFrame + CALL_SITE_GLUE + userCodeStackFrame,
-				// XXX: Replace.
-				Traces.extractOperatorAssemblyInformation(
-					toStackTrace(operatorStackFrame, userCodeStackFrame))
-			);
+				toOperator(operatorStackFrame, userCodeStackFrame));
 		}
 
 		// XXX: Document usage.
@@ -329,6 +283,16 @@ final class Traces {
 				.filter(s -> s != null)
 				.map(s -> "\t" + s + "\n")
 				.collect(Collectors.joining());
+		}
+
+		private static String toOperator(String operatorStackFrame, String userCodeStackFrame) {
+			// Attempt to create something in the form "Flux.map ⇢ user.code.Class.method(Class.java:123)".
+			int linePartIndex = operatorStackFrame.indexOf('(');
+			String apiLine = linePartIndex > 0 ?
+				operatorStackFrame.substring(0, linePartIndex) :
+				operatorStackFrame;
+
+			return dropPublisherPackagePrefix(apiLine) + CALL_SITE_GLUE+ "at " + userCodeStackFrame;
 		}
 	}
 }
