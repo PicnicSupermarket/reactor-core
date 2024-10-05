@@ -496,10 +496,10 @@ public interface Scannable {
 	 */
 	default Stream<String> steps() {
 		List<Scannable> chain = new ArrayList<>();
-		chain.addAll(parents().collect(Collectors.toList()));
+		parents().forEach(chain::add);
 		Collections.reverse(chain);
 		chain.add(this);
-		chain.addAll(actuals().collect(Collectors.toList()));
+		actuals().forEach(chain::add);
 
 		List<String> chainNames = new ArrayList<>(chain.size());
 		for (int i = 0; i < chain.size(); i++) {
