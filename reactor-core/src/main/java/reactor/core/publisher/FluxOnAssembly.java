@@ -366,12 +366,10 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 			}
 			else {
 				AssemblyInformation assemblyInformation = snapshot.toAssemblyInformation();
-				String[] parts = Traces.extractOperatorAssemblyInformationParts(assemblyInformation.asStackTrace());
-				if (parts.length > 0) {
-					String prefix = parts.length > 1 ? parts[0] : "";
-					String line = parts[parts.length - 1];
-
-					add(parent, current, prefix, line);
+				String line = assemblyInformation.location();
+				if (line != null) {
+					String prefix = assemblyInformation.operator();
+					add(parent, current, prefix != null ? prefix : "", line);
 				}
 			}
 		}
@@ -579,7 +577,15 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 				else {
 					StringBuilder sb = new StringBuilder();
 					fillStacktraceHeader(sb, parent.getClass(), snapshotStack.getDescription());
-					sb.append(snapshotStack.toAssemblyInformation().asStackTrace().replaceFirst("\\n$", ""));
+					AssemblyInformation assemblyInformation = snapshotStack.toAssemblyInformation();
+					String penultimateLine = assemblyInformation.operatorStackFrame();
+					if (penultimateLine != null) {
+						sb.append('\t').append(penultimateLine).append('\n');
+					}
+					String finalLine = assemblyInformation.userCodeStackFrame();
+					if (finalLine != null) {
+						sb.append('\t').append(finalLine);
+					}
 					String description = sb.toString();
 					onAssemblyException = new OnAssemblyException(description);
 				}
