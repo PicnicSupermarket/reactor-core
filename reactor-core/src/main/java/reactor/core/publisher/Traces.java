@@ -226,7 +226,8 @@ final class Traces {
 		private final String operatorStackFrame;
 		@Nullable
 		private final String userCodeStackFrame;
-		private final String operator;
+		@Nullable
+		private  String operator;
 
 		private AssemblyInformation(@Nullable String operatorStackFrame,
 			@Nullable String userCodeStackFrame, String operator) {
@@ -246,7 +247,7 @@ final class Traces {
 		static AssemblyInformation fromStackFrames(String operatorStackFrame,
 			String userCodeStackFrame) {
 			return new AssemblyInformation(operatorStackFrame, userCodeStackFrame,
-				toOperator(operatorStackFrame, userCodeStackFrame));
+				null);
 		}
 
 		// XXX: Document usage.
@@ -268,12 +269,20 @@ final class Traces {
 			return new AssemblyInformation(null, operator, operator);
 		}
 
+		@Nullable
+		String location() {
+			return operatorStackFrame != null ? "at " + userCodeStackFrame : userCodeStackFrame;
+		}
+
 		// XXX: Drop.
 		String asStackTrace() {
 			return toStackTrace(operatorStackFrame, userCodeStackFrame);
 		}
 
 		String operator() {
+			if (operator == null) {
+				operator = toOperator(operatorStackFrame, userCodeStackFrame);
+			}
 			return operator;
 		}
 
@@ -292,7 +301,7 @@ final class Traces {
 				operatorStackFrame.substring(0, linePartIndex) :
 				operatorStackFrame;
 
-			return dropPublisherPackagePrefix(apiLine) + CALL_SITE_GLUE+ "at " + userCodeStackFrame;
+			return dropPublisherPackagePrefix(apiLine) + CALL_SITE_GLUE + "at " + userCodeStackFrame;
 		}
 	}
 }
