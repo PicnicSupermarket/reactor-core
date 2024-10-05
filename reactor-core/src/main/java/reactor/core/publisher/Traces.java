@@ -19,8 +19,6 @@ package reactor.core.publisher;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import reactor.util.annotation.Nullable;
 
 /**
@@ -223,85 +221,129 @@ final class Traces {
 
 	static final class AssemblyInformation {
 		@Nullable
-		private final String operatorStackFrame;
+		private final Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier;
 		@Nullable
-		private final String userCodeStackFrame;
-		@Nullable
-		private  String operator;
+		private OperatorAssemblyInformation cachedOperatorAssemblyInformation;
 
-		private AssemblyInformation(@Nullable String operatorStackFrame,
-			@Nullable String userCodeStackFrame, String operator) {
-			this.operatorStackFrame = operatorStackFrame;
-			this.userCodeStackFrame = userCodeStackFrame;
-			this.operator = operator;
+		private AssemblyInformation(
+			@Nullable Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier,
+			@Nullable OperatorAssemblyInformation cachedOperatorAssemblyInformation) {
+			this.operatorAssemblyInformationSupplier = operatorAssemblyInformationSupplier;
+			this.cachedOperatorAssemblyInformation = cachedOperatorAssemblyInformation;
 		}
 
 		static AssemblyInformation empty() {
-			return new AssemblyInformation(null, null, "[no operator assembly information]");
+			return new AssemblyInformation(null, new OperatorAssemblyInformation(null, null));
 		}
 
 		static AssemblyInformation fromStackFrame(String userCodeStackFrame) {
-			return new AssemblyInformation(null, userCodeStackFrame, userCodeStackFrame);
+			return new AssemblyInformation(null,
+				new OperatorAssemblyInformation(null, userCodeStackFrame));
 		}
 
 		static AssemblyInformation fromStackFrames(String operatorStackFrame,
 			String userCodeStackFrame) {
-			return new AssemblyInformation(operatorStackFrame, userCodeStackFrame,
-				null);
+			return new AssemblyInformation(
+				null, new OperatorAssemblyInformation(operatorStackFrame, userCodeStackFrame));
 		}
 
 		// XXX: Document usage.
 		static AssemblyInformation fromStackTraceTail(String source) {
-			int finalNewline = source.indexOf('\n');
-			if (finalNewline < 0) {
-				return fromStackFrame(source.trim());
-			}
+			return new AssemblyInformation(
+				() -> {
+					int finalNewline = source.indexOf('\n');
+					if (finalNewline < 0) {
+						return new OperatorAssemblyInformation(null, source.trim());
+					}
 
-			String userCodeStackFrame = source.substring(finalNewline + 1);
-			int penultimateNewline = source.lastIndexOf('\n', finalNewline - 1);
-			String operatorStackFrame = penultimateNewline < 0 ?
-				source.substring(0, finalNewline) :
-				source.substring(penultimateNewline + 1, finalNewline);
-			return fromStackFrames(operatorStackFrame.trim(), userCodeStackFrame.trim());
+					String userCodeStackFrame = source.substring(finalNewline + 1);
+					int penultimateNewline = source.lastIndexOf('\n', finalNewline - 1);
+					String operatorStackFrame = penultimateNewline < 0 ?
+						source.substring(0, finalNewline) :
+						source.substring(penultimateNewline + 1, finalNewline);
+					return new OperatorAssemblyInformation(operatorStackFrame.trim(),
+						userCodeStackFrame.trim());
+				}, null);
 		}
 
+		// XXX: Drop. Use `fromStackFrame`, possibly renamed.
 		static AssemblyInformation fromOperator(String operator) {
-			return new AssemblyInformation(null, operator, operator);
+			return new AssemblyInformation(null, new OperatorAssemblyInformation(null, operator));
+		}
+
+		@Nullable
+		String operatorStackFrame() {
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
+			}
+			// XXX: Dodgy field access.
+			return cachedOperatorAssemblyInformation.operatorStackFrame;
+		}
+
+		@Nullable
+		String userCodeStackFrame() {
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
+			}
+			return cachedOperatorAssemblyInformation.userCodeStackFrame;
 		}
 
 		@Nullable
 		String location() {
-			return operatorStackFrame != null ? "at " + userCodeStackFrame : userCodeStackFrame;
-		}
-
-		// XXX: Drop.
-		String asStackTrace() {
-			return toStackTrace(operatorStackFrame, userCodeStackFrame);
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
+			}
+			return cachedOperatorAssemblyInformation.location();
 		}
 
 		String operator() {
-			if (operator == null) {
-				operator = toOperator(operatorStackFrame, userCodeStackFrame);
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
 			}
-			return operator;
+			return cachedOperatorAssemblyInformation.description();
 		}
 
-		// XXX: Drop.
-		private static String toStackTrace(String operator, String userCode) {
-			return Stream.of(operator, userCode)
-				.filter(s -> s != null)
-				.map(s -> "\t" + s + "\n")
-				.collect(Collectors.joining());
-		}
+		private static class OperatorAssemblyInformation {
+			@Nullable
+			private final String operatorStackFrame;
+			@Nullable
+			private final String userCodeStackFrame;
 
-		private static String toOperator(String operatorStackFrame, String userCodeStackFrame) {
-			// Attempt to create something in the form "Flux.map ⇢ user.code.Class.method(Class.java:123)".
-			int linePartIndex = operatorStackFrame.indexOf('(');
-			String apiLine = linePartIndex > 0 ?
-				operatorStackFrame.substring(0, linePartIndex) :
-				operatorStackFrame;
+			OperatorAssemblyInformation(@Nullable String operatorStackFrame,
+				@Nullable String userCodeStackFrame) {
+				this.operatorStackFrame = operatorStackFrame;
+				this.userCodeStackFrame = userCodeStackFrame;
 
-			return dropPublisherPackagePrefix(apiLine) + CALL_SITE_GLUE + "at " + userCodeStackFrame;
+				if ((operatorStackFrame !=null&&operatorStackFrame.contains(CALL_SITE_GLUE))|| (userCodeStackFrame !=null && userCodeStackFrame.contains(CALL_SITE_GLUE))) {
+					throw new IllegalArgumentException("XXXX" + operatorStackFrame + " " + userCodeStackFrame);
+				}
+			}
+
+			@Nullable
+			String operation() {
+				if (operatorStackFrame == null) {
+					return null;
+				}
+
+				int linePartIndex = operatorStackFrame.indexOf('(');
+				return dropPublisherPackagePrefix(linePartIndex > 0 ?
+					operatorStackFrame.substring(0, linePartIndex) :
+					operatorStackFrame);
+			}
+
+			@Nullable
+			String location() {
+				return operatorStackFrame != null ? "at " + userCodeStackFrame : userCodeStackFrame;
+			}
+
+			String description() {
+				String location = location();
+				if (location == null) {
+					return "[no operator assembly information]";
+				}
+				String operation = operation();
+				return operation == null ? location : operation + CALL_SITE_GLUE + location;
+			}
 		}
 	}
 }
