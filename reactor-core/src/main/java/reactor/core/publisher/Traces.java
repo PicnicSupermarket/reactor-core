@@ -19,6 +19,8 @@ package reactor.core.publisher;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import reactor.util.annotation.Nullable;
 
 /**
@@ -35,8 +37,8 @@ final class Traces {
 	 * instead of the sanitized version.
 	 */
 	static final boolean full = Boolean.parseBoolean(System.getProperty(
-			"reactor.trace.assembly.fullstacktrace",
-			"false"));
+		"reactor.trace.assembly.fullstacktrace",
+		"false"));
 
 	static final String CALL_SITE_GLUE = " ⇢ ";
 
@@ -45,7 +47,7 @@ final class Traces {
 	 * each element being prepended with a tabulation and appended with a
 	 * newline.
 	 */
-	static final Supplier<Supplier<String>> callSiteSupplierFactory = new CallSiteSupplierFactory();
+	static final Supplier<Supplier<AssemblyInformation>> callSiteSupplierFactory = new CallSiteSupplierFactory();
 
 	/**
 	 * Return true for strings (usually from a stack trace element) that should be
@@ -56,18 +58,18 @@ final class Traces {
 	 */
 	static boolean shouldSanitize(String stackTraceRow) {
 		return stackTraceRow.startsWith("java.util.function")
-				|| stackTraceRow.startsWith("reactor.core.publisher.Mono.onAssembly")
-				|| stackTraceRow.equals("reactor.core.publisher.Flux.onAssembly")
-				|| stackTraceRow.equals("reactor.core.publisher.ParallelFlux.onAssembly")
-				|| stackTraceRow.startsWith("reactor.core.publisher.SignalLogger")
-				|| stackTraceRow.startsWith("reactor.core.publisher.FluxOnAssembly")
-				|| stackTraceRow.startsWith("reactor.core.publisher.MonoOnAssembly.")
-				|| stackTraceRow.startsWith("reactor.core.publisher.MonoCallableOnAssembly.")
-				|| stackTraceRow.startsWith("reactor.core.publisher.FluxCallableOnAssembly.")
-				|| stackTraceRow.startsWith("reactor.core.publisher.Hooks")
-				|| stackTraceRow.startsWith("sun.reflect")
-				|| stackTraceRow.startsWith("java.util.concurrent.ThreadPoolExecutor")
-				|| stackTraceRow.startsWith("java.lang.reflect");
+			|| stackTraceRow.startsWith("reactor.core.publisher.Mono.onAssembly")
+			|| stackTraceRow.equals("reactor.core.publisher.Flux.onAssembly")
+			|| stackTraceRow.equals("reactor.core.publisher.ParallelFlux.onAssembly")
+			|| stackTraceRow.startsWith("reactor.core.publisher.SignalLogger")
+			|| stackTraceRow.startsWith("reactor.core.publisher.FluxOnAssembly")
+			|| stackTraceRow.startsWith("reactor.core.publisher.MonoOnAssembly.")
+			|| stackTraceRow.startsWith("reactor.core.publisher.MonoCallableOnAssembly.")
+			|| stackTraceRow.startsWith("reactor.core.publisher.FluxCallableOnAssembly.")
+			|| stackTraceRow.startsWith("reactor.core.publisher.Hooks")
+			|| stackTraceRow.startsWith("sun.reflect")
+			|| stackTraceRow.startsWith("java.util.concurrent.ThreadPoolExecutor")
+			|| stackTraceRow.startsWith("java.lang.reflect");
 	}
 
 	/**
@@ -91,6 +93,7 @@ final class Traces {
 	 * @return a {@link String} representing operator and operator assembly site extracted
 	 * from the assembly stack trace.
 	 */
+	// XXX: Drop.
 	static String extractOperatorAssemblyInformation(String source) {
 		String[] parts = extractOperatorAssemblyInformationParts(source);
 		switch (parts.length) {
@@ -127,6 +130,7 @@ final class Traces {
 	 * @return a {@link String} representing operator and operator assembly site extracted
 	 * from the assembly stack trace.
 	 */
+	// XXX: Reimplement.
 	static String[] extractOperatorAssemblyInformationParts(String source) {
 		Iterator<String> traces = trimmedNonemptyLines(source);
 
@@ -217,40 +221,114 @@ final class Traces {
 		};
 	}
 
+	//	static final class AssemblyInformation {
+	//		private final String[] stackFrames;
+	//		private final String operator;
+	//
+	//		private AssemblyInformation(String[] stackFrames, String operator) {
+	//			this.operator = operator;
+	//			this.stackFrames = stackFrames;
+	//		}
+	//
+	//		static AssemblyInformation fromStackFrames(String[] stackFrames) {
+	//			return new AssemblyInformation(stackFrames, operatorFromStackFrames(stackFrames));
+	//		}
+	//
+	//		static AssemblyInformation fromOperator(String operator) {
+	//			return new AssemblyInformation(new String[]{operator}, operator);
+	//		}
+	//
+	//		private static String operatorFromStackFrames(String[] stackFrames) {
+	//			if (stackFrames.length == 0) {
+	//				return "[no operator assembly information]";
+	//			}
+	//			String operator = stackFrames[0];
+	//			if (stackFrames.length == 1) {
+	//				return operator;
+	//			}
+	//			return operator + CALL_SITE_GLUE + stackFrames[1];
+	//		}
+	//
+	//		String[] stackFrames() {
+	//			return stackFrames;
+	//		}
+	//
+	//		String operator() {
+	//			return operator;
+	//		}
+	//	}
+
 	static final class AssemblyInformation {
-		private final String[] stackFrames;
+		@Nullable
+		private final String operatorStackFrame;
+		@Nullable
+		private final String userCodeStackFrame;
 		private final String operator;
 
-		private AssemblyInformation(String[] stackFrames, String operator) {
+		private AssemblyInformation(@Nullable String operatorStackFrame,
+			@Nullable String userCodeStackFrame, String operator) {
+			this.operatorStackFrame = operatorStackFrame;
+			this.userCodeStackFrame = userCodeStackFrame;
 			this.operator = operator;
-			this.stackFrames = stackFrames;
 		}
 
-		static AssemblyInformation fromStackFrames(String[] stackFrames) {
-			return new AssemblyInformation(stackFrames, operatorFromStackFrames(stackFrames));
+		static AssemblyInformation empty() {
+			return new AssemblyInformation(null, null, "[no operator assembly information]");
+		}
+
+		static AssemblyInformation fromStackFrame(String userCodeStackFrame) {
+			return new AssemblyInformation(null, userCodeStackFrame,
+				//				userCodeStackFrame,
+				// XXX: Replace.
+				Traces.extractOperatorAssemblyInformation(
+					toStackTrace(null, userCodeStackFrame))
+			);
+		}
+
+		static AssemblyInformation fromStackFrames(String operatorStackFrame,
+			String userCodeStackFrame) {
+			return new AssemblyInformation(operatorStackFrame, userCodeStackFrame,
+				//				operatorStackFrame + CALL_SITE_GLUE + userCodeStackFrame,
+				// XXX: Replace.
+				Traces.extractOperatorAssemblyInformation(
+					toStackTrace(operatorStackFrame, userCodeStackFrame))
+			);
+		}
+
+		// XXX: Document usage.
+		static AssemblyInformation fromStackTraceTail(String source) {
+			int finalNewline = source.indexOf('\n');
+			if (finalNewline < 0) {
+				return fromStackFrame(source.trim());
+			}
+
+			String userCodeStackFrame = source.substring(finalNewline + 1);
+			int penultimateNewline = source.lastIndexOf('\n', finalNewline - 1);
+			String operatorStackFrame = penultimateNewline < 0 ?
+				source.substring(0, finalNewline) :
+				source.substring(penultimateNewline + 1, finalNewline);
+			return fromStackFrames(operatorStackFrame.trim(), userCodeStackFrame.trim());
 		}
 
 		static AssemblyInformation fromOperator(String operator) {
-			return new AssemblyInformation(new String[]{operator}, operator);
+			return new AssemblyInformation(null, operator, operator);
 		}
 
-		private static String operatorFromStackFrames(String[] stackFrames) {
-			if (stackFrames.length == 0) {
-				return "[no operator assembly information]";
-			}
-			String operator = stackFrames[0];
-			if (stackFrames.length == 1) {
-				return operator;
-			}
-			return operator + CALL_SITE_GLUE + stackFrames[1];
-		}
-
-		String[] stackFrames() {
-			return stackFrames;
+		// XXX: Drop.
+		String asStackTrace() {
+			return toStackTrace(operatorStackFrame, userCodeStackFrame);
 		}
 
 		String operator() {
 			return operator;
+		}
+
+		// XXX: Drop.
+		private static String toStackTrace(String operator, String userCode) {
+			return Stream.of(operator, userCode)
+				.filter(s -> s != null)
+				.map(s -> "\t" + s + "\n")
+				.collect(Collectors.joining());
 		}
 	}
 }

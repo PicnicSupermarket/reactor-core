@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022 VMware Inc. or its affiliates, All Rights Reserved.
+ * Copyright (c) 2019-2024 VMware Inc. or its affiliates, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,8 +32,8 @@ import net.bytebuddy.jar.asm.Type;
  * </pre>
  * After:
  * <pre>
- *     Flux flux = Hooks.addCallSiteInfo(Flux.just(1), "Flux.just -> MyClass.myMethod(MyClass.java:12)");
- *     flux = Hooks.addCallSiteInfo(flux.map(it -> it), "Flux.map -> MyClass.myMethod(MyClass.java:13)");
+ *     Flux flux = Hooks.addCallSiteInfo(Flux.just(1), "Flux.just\nMyClass.myMethod(MyClass.java:12)");
+ *     flux = Hooks.addCallSiteInfo(flux.map(it -> it), "Flux.map\nMyClass.myMethod(MyClass.java:13)");
  * </pre>
  *
  */
@@ -117,9 +117,9 @@ class CallSiteInfoAddingMethodVisitor extends MethodVisitor {
             changed.set(true);
 
             String callSite = String.format(
-                    "\t%s.%s\n\t%s.%s(%s:%d)\n",
-                    owner.replace("/", "."), name,
-                    currentClassName.replace("/", "."), currentMethod, currentSource, currentLine
+                    "%s.%s\n%s.%s(%s:%d)",
+                    owner.replace('/', '.'), name,
+                    currentClassName.replace('/', '.'), currentMethod, currentSource, currentLine
             );
             super.visitLdcInsn(callSite);
             super.visitMethodInsn(

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2023 VMware Inc. or its affiliates, All Rights Reserved.
+ * Copyright (c) 2016-2024 VMware Inc. or its affiliates, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.reactivestreams.Publisher;
 import reactor.core.Exceptions;
 import reactor.core.publisher.FluxOnAssembly.AssemblySnapshot;
 import reactor.core.publisher.FluxOnAssembly.MethodReturnSnapshot;
+import reactor.core.publisher.Traces.AssemblyInformation;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.Logger;
 import reactor.util.Loggers;
@@ -700,7 +701,7 @@ public abstract class Hooks {
 		if (publisher == null) {
 			return null;
 		}
-		return addAssemblyInfo(publisher, new AssemblySnapshot(callSite));
+		return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromStackTraceTail(callSite)));
 	}
 
 	static <T, P extends Publisher<T>> Publisher<T> addAssemblyInfo(P publisher, AssemblySnapshot stacktrace) {

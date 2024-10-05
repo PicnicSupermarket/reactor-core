@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 VMware Inc. or its affiliates, All Rights Reserved.
+ * Copyright (c) 2023-2024 VMware Inc. or its affiliates, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package reactor.core.publisher;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import reactor.core.publisher.Traces.AssemblyInformation;
 import sun.misc.JavaLangAccess;
 import sun.misc.SharedSecrets;
 
@@ -29,9 +30,9 @@ import static reactor.core.publisher.Traces.shouldSanitize;
 /**
  * Utility class for the call-site extracting on Java 8.
  */
-class CallSiteSupplierFactory implements Supplier<Supplier<String>> {
+class CallSiteSupplierFactory implements Supplier<Supplier<AssemblyInformation>> {
 
-	static final Supplier<Supplier<String>> supplier;
+	static final Supplier<Supplier<AssemblyInformation>> supplier;
 
 	static {
 		String[] strategyClasses = {
@@ -47,7 +48,7 @@ class CallSiteSupplierFactory implements Supplier<Supplier<String>> {
 					try {
 						Class<?> clazz = Class.forName(className);
 						@SuppressWarnings("unchecked")
-						Supplier<Supplier<String>> function = (Supplier) clazz.getDeclaredConstructor()
+						Supplier<Supplier<AssemblyInformation>> function = (Supplier) clazz.getDeclaredConstructor()
 						                                                      .newInstance();
 						return Stream.of(function);
 					}
@@ -67,28 +68,28 @@ class CallSiteSupplierFactory implements Supplier<Supplier<String>> {
 
 
 	@Override
-	public Supplier<String> get() {
+	public Supplier<AssemblyInformation> get() {
 		return supplier.get();
 	}
 
 	@SuppressWarnings("unused")
-	static class SharedSecretsCallSiteSupplierFactory implements Supplier<Supplier<String>> {
+	static class SharedSecretsCallSiteSupplierFactory implements Supplier<Supplier<AssemblyInformation>> {
 
 		static {
 			SharedSecrets.getJavaLangAccess();
 		}
 
 		@Override
-		public Supplier<String> get() {
+		public Supplier<AssemblyInformation> get() {
 			return new TracingException();
 		}
 
-		static class TracingException extends Throwable implements Supplier<String> {
+		static class TracingException extends Throwable implements Supplier<AssemblyInformation> {
 
 			static final JavaLangAccess javaLangAccess = SharedSecrets.getJavaLangAccess();
 
 			@Override
-			public String get() {
+			public AssemblyInformation get() {
 				int stackTraceDepth = javaLangAccess.getStackTraceDepth(this);
 
 				StackTraceElement previousElement = null;
@@ -98,44 +99,45 @@ class CallSiteSupplierFactory implements Supplier<Supplier<String>> {
 
 					String className = e.getClassName();
 					if (isUserCode(className)) {
-						StringBuilder sb = new StringBuilder();
-
-						if (previousElement != null) {
-							sb.append("\t").append(previousElement.toString()).append("\n");
+						if (previousElement == null) {
+							return AssemblyInformation.fromStackFrame(e.toString());
 						}
-						sb.append("\t").append(e.toString()).append("\n");
-						return sb.toString();
+
+						return AssemblyInformation.fromStackFrames(previousElement.toString(), e.toString());
 					}
 					else {
-						if (!full && e.getLineNumber() <= 1) {
-							continue;
+						if (!full) {
+							if (e.getLineNumber() <= 1) {
+								continue;
+							}
+
+							String classAndMethod = className + '.' + e.getMethodName();
+							if (shouldSanitize(classAndMethod)) {
+								continue;
+							}
 						}
 
-						String classAndMethod = className + "." + e.getMethodName();
-						if (!full && shouldSanitize(classAndMethod)) {
-							continue;
-						}
 						previousElement = e;
 					}
 				}
 
-				return "";
+				return AssemblyInformation.empty();
 			}
 		}
 	}
 
 	@SuppressWarnings("unused")
-	static class ExceptionCallSiteSupplierFactory implements Supplier<Supplier<String>> {
+	static class ExceptionCallSiteSupplierFactory implements Supplier<Supplier<AssemblyInformation>> {
 
 		@Override
-		public Supplier<String> get() {
+		public Supplier<AssemblyInformation> get() {
 			return new TracingException();
 		}
 
-		static class TracingException extends Throwable implements Supplier<String> {
+		static class TracingException extends Throwable implements Supplier<AssemblyInformation> {
 
 			@Override
-			public String get() {
+			public AssemblyInformation get() {
 				StackTraceElement previousElement = null;
 				StackTraceElement[] stackTrace = getStackTrace();
 				// Skip get()
@@ -144,28 +146,28 @@ class CallSiteSupplierFactory implements Supplier<Supplier<String>> {
 
 					String className = e.getClassName();
 					if (isUserCode(className)) {
-						StringBuilder sb = new StringBuilder();
-
-						if (previousElement != null) {
-							sb.append("\t").append(previousElement.toString()).append("\n");
+						if (previousElement == null) {
+							return AssemblyInformation.fromStackFrame(e.toString());
 						}
-						sb.append("\t").append(e.toString()).append("\n");
-						return sb.toString();
+
+						return AssemblyInformation.fromStackFrames(previousElement.toString(), e.toString());
 					}
 					else {
-						if (!full && e.getLineNumber() <= 1) {
-							continue;
-						}
+						if (!full) {
+							if (e.getLineNumber() <= 1) {
+								continue;
+							}
 
-						String classAndMethod = className + "." + e.getMethodName();
-						if (!full && shouldSanitize(classAndMethod)) {
-							continue;
+							String classAndMethod = className + '.' + e.getMethodName();
+							if (shouldSanitize(classAndMethod)) {
+								continue;
+							}
 						}
 						previousElement = e;
 					}
 				}
 
-				return "";
+				return AssemblyInformation.empty();
 			}
 		}
 	}
