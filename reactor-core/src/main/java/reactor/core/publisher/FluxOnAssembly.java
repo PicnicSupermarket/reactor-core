@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021 VMware Inc. or its affiliates, All Rights Reserved.
+ * Copyright (c) 2016-2024 VMware Inc. or its affiliates, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import reactor.core.CoreSubscriber;
 import reactor.core.Exceptions;
 import reactor.core.Fuseable;
 import reactor.core.Scannable;
+import reactor.core.publisher.Traces.AssemblyInformation;
 import reactor.util.annotation.Nullable;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
@@ -139,18 +140,18 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 		@Nullable
 		final String           description;
 		@Nullable
-		final Supplier<String> assemblyInformationSupplier;
-		String cached;
+		final Supplier<AssemblyInformation> assemblyInformationSupplier;
+		AssemblyInformation cached;
 
 		/**
 		 * @param description a description for the assembly traceback.
 		 * @param assemblyInformationSupplier a callSite supplier.
 		 */
-		AssemblySnapshot(@Nullable String description, Supplier<String> assemblyInformationSupplier) {
+		AssemblySnapshot(@Nullable String description, Supplier<AssemblyInformation> assemblyInformationSupplier) {
 			this(description != null, description, assemblyInformationSupplier);
 		}
 
-		AssemblySnapshot(String assemblyInformation) {
+		AssemblySnapshot(AssemblyInformation assemblyInformation) {
 			this.isCheckpoint = false;
 			this.description = null;
 			this.assemblyInformationSupplier = null;
@@ -158,7 +159,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 		}
 
 		private AssemblySnapshot(boolean isCheckpoint, @Nullable String description,
-								 @Nullable Supplier<String> assemblyInformationSupplier) {
+								 @Nullable Supplier<AssemblyInformation> assemblyInformationSupplier) {
 			this.isCheckpoint = isCheckpoint;
 			this.description = description;
 			this.assemblyInformationSupplier = assemblyInformationSupplier;
@@ -185,7 +186,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 			return "";
 		}
 
-		String toAssemblyInformation() {
+		AssemblyInformation toAssemblyInformation() {
 			if(cached == null) {
 				if (assemblyInformationSupplier == null) {
 					throw new IllegalStateException("assemblyInformation must either be supplied or resolvable");
@@ -196,7 +197,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 		}
 
 		String operatorAssemblyInformation() {
-			return Traces.extractOperatorAssemblyInformation(toAssemblyInformation());
+			return toAssemblyInformation().operator();
 		}
 	}
 
@@ -204,7 +205,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 
 		CheckpointLightSnapshot(@Nullable String description) {
 			super(true, description, null);
-			this.cached = "checkpoint(\"" + (description == null ? "" : description) + "\")";
+			this.cached = AssemblyInformation.fromOperator("checkpoint(\"" + (description == null ? "" : description) + "\")");
 		}
 
 		@Override
@@ -219,14 +220,14 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 
 		@Override
 		String operatorAssemblyInformation() {
-			return cached;
+			return cached.operator();
 		}
 
 	}
 
 	static final class CheckpointHeavySnapshot extends AssemblySnapshot {
 
-		CheckpointHeavySnapshot(@Nullable String description, Supplier<String> assemblyInformationSupplier) {
+		CheckpointHeavySnapshot(@Nullable String description, Supplier<AssemblyInformation> assemblyInformationSupplier) {
 			super(true, description, assemblyInformationSupplier);
 		}
 
@@ -244,7 +245,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 
 		MethodReturnSnapshot(String method) {
 			super(false, method, null);
-			cached = method;
+			cached = AssemblyInformation.fromOperator(method);
 		}
 
 		@Override
@@ -254,7 +255,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 
 		@Override
 		String operatorAssemblyInformation() {
-			return cached;
+			return cached.operator();
 		}
 	}
 
@@ -351,8 +352,8 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 					add(parent, current, snapshot.lightPrefix(), Objects.requireNonNull(snapshot.getDescription()));
 				}
 				else {
-					String assemblyInformation = snapshot.toAssemblyInformation();
-					String[] parts = Traces.extractOperatorAssemblyInformationParts(assemblyInformation);
+					AssemblyInformation assemblyInformation = snapshot.toAssemblyInformation();
+					String[] parts = Traces.extractOperatorAssemblyInformationParts(assemblyInformation.asStackTrace());
 
 					if (parts.length > 0) {
 						//we ignore the first part if there are two (classname and callsite). only use the line part
@@ -366,8 +367,8 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 				}
 			}
 			else {
-				String assemblyInformation = snapshot.toAssemblyInformation();
-				String[] parts = Traces.extractOperatorAssemblyInformationParts(assemblyInformation);
+				AssemblyInformation assemblyInformation = snapshot.toAssemblyInformation();
+				String[] parts = Traces.extractOperatorAssemblyInformationParts(assemblyInformation.asStackTrace());
 				if (parts.length > 0) {
 					String prefix = parts.length > 1 ? parts[0] : "";
 					String line = parts[parts.length - 1];
@@ -580,7 +581,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 				else {
 					StringBuilder sb = new StringBuilder();
 					fillStacktraceHeader(sb, parent.getClass(), snapshotStack.getDescription());
-					sb.append(snapshotStack.toAssemblyInformation().replaceFirst("\\n$", ""));
+					sb.append(snapshotStack.toAssemblyInformation().asStackTrace().replaceFirst("\\n$", ""));
 					String description = sb.toString();
 					onAssemblyException = new OnAssemblyException(description);
 				}

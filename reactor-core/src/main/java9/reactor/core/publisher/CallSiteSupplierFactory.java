@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 VMware Inc. or its affiliates, All Rights Reserved.
+ * Copyright (c) 2023-2024 VMware Inc. or its affiliates, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.util.Iterator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import reactor.core.publisher.Traces.AssemblyInformation;
 
 import static reactor.core.publisher.Traces.full;
 import static reactor.core.publisher.Traces.isUserCode;
@@ -28,7 +29,7 @@ import static reactor.core.publisher.Traces.shouldSanitize;
 /**
  * Utility class for the call-site extracting on Java 9+.
  */
-final class CallSiteSupplierFactory implements Supplier<Supplier<String>>, Function<Stream<StackWalker.StackFrame>, StackWalker.StackFrame[]> {
+final class CallSiteSupplierFactory implements Supplier<Supplier<AssemblyInformation>>, Function<Stream<StackWalker.StackFrame>, StackWalker.StackFrame[]> {
 
 	static {
 		// Trigger eager StackWalker class loading.
@@ -70,22 +71,20 @@ final class CallSiteSupplierFactory implements Supplier<Supplier<String>>, Funct
 	 * @return the string version of the stacktrace.
 	 */
 	@Override
-	public Supplier<String> get() {
+	public Supplier<AssemblyInformation> get() {
 		StackWalker.StackFrame[] stack =
 				StackWalker.getInstance()
 				           .walk(this);
 
 		if (stack.length == 0) {
-			return () -> "";
+			return () -> AssemblyInformation.empty();
 		}
 
 		if (stack.length == 1) {
-			return () -> "\t" + stack[0].toString() + "\n";
+			return () -> AssemblyInformation.fromStackFrame(stack[0].toString());
 		}
 
 		return () -> {
-			StringBuilder sb = new StringBuilder();
-
 			for (int j = stack.length - 2; j > 0; j--) {
 				StackWalker.StackFrame previous = stack[j];
 
@@ -100,17 +99,10 @@ final class CallSiteSupplierFactory implements Supplier<Supplier<String>>, Funct
 						continue;
 					}
 				}
-				sb.append("\t")
-				  .append(previous.toString())
-				  .append("\n");
-				break;
+				return Traces.AssemblyInformation.fromStackFrames(previous.toString(), stack[stack.length - 1].toString());
 			}
 
-			sb.append("\t")
-			  .append(stack[stack.length - 1].toString())
-			  .append("\n");
-
-			return sb.toString();
+			return Traces.AssemblyInformation.fromStackFrame(stack[stack.length - 1].toString());
 		};
 	}
 }
