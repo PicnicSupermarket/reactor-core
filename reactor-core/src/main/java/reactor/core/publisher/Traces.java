@@ -128,7 +128,7 @@ final class Traces {
 	 * @return a {@link String} representing operator and operator assembly site extracted
 	 * from the assembly stack trace.
 	 */
-	// XXX: Reimplement.
+	// XXX: Drop.
 	static String[] extractOperatorAssemblyInformationParts(String source) {
 		Iterator<String> traces = trimmedNonemptyLines(source);
 
@@ -258,9 +258,8 @@ final class Traces {
 
 					String userCodeStackFrame = source.substring(finalNewline + 1);
 					int penultimateNewline = source.lastIndexOf('\n', finalNewline - 1);
-					String operatorStackFrame = penultimateNewline < 0 ?
-						source.substring(0, finalNewline) :
-						source.substring(penultimateNewline + 1, finalNewline);
+					String operatorStackFrame = source.substring(
+						penultimateNewline < 0 ? 0 : penultimateNewline + 1, finalNewline);
 					return new OperatorAssemblyInformation(operatorStackFrame.trim(),
 						userCodeStackFrame.trim());
 				}, null);
@@ -285,6 +284,7 @@ final class Traces {
 			if (cachedOperatorAssemblyInformation == null) {
 				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
 			}
+			// XXX: Dodgy field access.
 			return cachedOperatorAssemblyInformation.userCodeStackFrame;
 		}
 
@@ -296,7 +296,6 @@ final class Traces {
 			return cachedOperatorAssemblyInformation.location();
 		}
 
-		@Nullable
 		String operator() {
 			if (cachedOperatorAssemblyInformation == null) {
 				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
@@ -321,16 +320,13 @@ final class Traces {
 				@Nullable String userCodeStackFrame) {
 				this.operatorStackFrame = operatorStackFrame;
 				this.userCodeStackFrame = userCodeStackFrame;
-
-				// XXX: Drop.
-//				if ((operatorStackFrame !=null&&operatorStackFrame.contains(CALL_SITE_GLUE))|| (userCodeStackFrame !=null && userCodeStackFrame.contains(CALL_SITE_GLUE))) {
-//					throw new IllegalArgumentException("XXXX" + operatorStackFrame + " " + userCodeStackFrame);
-//				}
 			}
 
 			String operation() {
 				if (operatorStackFrame == null) {
-					return userCodeStackFrame != null ? userCodeStackFrame : "[no operator assembly information]";
+					return userCodeStackFrame != null ?
+						userCodeStackFrame :
+						"[no operator assembly information]";
 				}
 
 				int linePartIndex = operatorStackFrame.indexOf('(');
@@ -350,7 +346,9 @@ final class Traces {
 					return "[no operator assembly information]";
 				}
 				String operation = operation();
-				return operation == null || operation.equals(location) ? location : operation + CALL_SITE_GLUE + location;
+				return operation.equals(location) ?
+					location :
+					operation + CALL_SITE_GLUE + location;
 			}
 		}
 	}
