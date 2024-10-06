@@ -197,7 +197,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 		}
 
 		String operatorAssemblyInformation() {
-			return toAssemblyInformation().operator();
+			return toAssemblyInformation().description();
 		}
 	}
 
@@ -369,7 +369,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 				String line = assemblyInformation.location();
 				if (line != null) {
 					String prefix = assemblyInformation.operator();
-					add(parent, current, prefix != null ? prefix : "", line);
+					add(parent, current, prefix != null && !line.equals(prefix) ? prefix : "", line);
 				}
 			}
 		}

@@ -296,7 +296,15 @@ final class Traces {
 			return cachedOperatorAssemblyInformation.location();
 		}
 
+		@Nullable
 		String operator() {
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
+			}
+			return cachedOperatorAssemblyInformation.operation();
+		}
+
+		String description() {
 			if (cachedOperatorAssemblyInformation == null) {
 				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
 			}
@@ -314,15 +322,15 @@ final class Traces {
 				this.operatorStackFrame = operatorStackFrame;
 				this.userCodeStackFrame = userCodeStackFrame;
 
-				if ((operatorStackFrame !=null&&operatorStackFrame.contains(CALL_SITE_GLUE))|| (userCodeStackFrame !=null && userCodeStackFrame.contains(CALL_SITE_GLUE))) {
-					throw new IllegalArgumentException("XXXX" + operatorStackFrame + " " + userCodeStackFrame);
-				}
+				// XXX: Drop.
+//				if ((operatorStackFrame !=null&&operatorStackFrame.contains(CALL_SITE_GLUE))|| (userCodeStackFrame !=null && userCodeStackFrame.contains(CALL_SITE_GLUE))) {
+//					throw new IllegalArgumentException("XXXX" + operatorStackFrame + " " + userCodeStackFrame);
+//				}
 			}
 
-			@Nullable
 			String operation() {
 				if (operatorStackFrame == null) {
-					return null;
+					return userCodeStackFrame != null ? userCodeStackFrame : "[no operator assembly information]";
 				}
 
 				int linePartIndex = operatorStackFrame.indexOf('(');
@@ -342,7 +350,7 @@ final class Traces {
 					return "[no operator assembly information]";
 				}
 				String operation = operation();
-				return operation == null ? location : operation + CALL_SITE_GLUE + location;
+				return operation == null || operation.equals(location) ? location : operation + CALL_SITE_GLUE + location;
 			}
 		}
 	}
