@@ -97,10 +97,8 @@ class ReturnHandlingMethodVisitor extends MethodVisitor {
         if (!checkpointed && Opcodes.ARETURN == opcode) {
             changed.set(true);
 
-            String callSite = String.format(
-                    "at %s.%s(%s:%d)",
-                    currentClassName.replace('/', '.'), currentMethod, currentSource, currentLine
-            );
+            String callSite = "at " + currentClassName.replace('/','.')
+                + '.' + currentMethod + '(' + currentSource + ':' + currentLine + ')';
             super.visitLdcInsn(callSite);
 
             super.visitMethodInsn(
