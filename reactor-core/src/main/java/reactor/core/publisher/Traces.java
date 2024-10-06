@@ -246,7 +246,8 @@ final class Traces {
 		}
 
 		// XXX: Document usage.
-		// XXX: Could be optimized further, given assumptions about the Java Agent.
+		// XXX: If an additional `Hook` method is added, then Byte Buddy can pass the two strings in separately.
+		// This way `OperatorAssemblyInformation` creation would not need to be deferred, and `AssemblyInformation` and `OperatorAssemblyInformation` could be merged.
 		static AssemblyInformation fromTwoLineStackTrace(String source) {
 			return new AssemblyInformation(() -> {
 				int finalNewline = source.indexOf('\n');
@@ -312,14 +313,17 @@ final class Traces {
 			private final String operatorStackFrame;
 			@Nullable
 			private final String userCodeStackFrame;
-			private final String operation;
+			@Nullable
+			private String operation;
 			@Nullable
 			private final String location;
-			private final String description;
+			@Nullable
+			private String description;
 
 			OperatorAssemblyInformation(@Nullable String operatorStackFrame,
-				@Nullable String userCodeStackFrame, String operation, @Nullable String location,
-				String description) {
+				@Nullable String userCodeStackFrame, @Nullable String operation,
+				@Nullable String location,
+				@Nullable String description) {
 				this.operatorStackFrame = operatorStackFrame;
 				this.userCodeStackFrame = userCodeStackFrame;
 				this.operation = operation;
@@ -340,17 +344,17 @@ final class Traces {
 
 			static OperatorAssemblyInformation fromStackFrames(String operatorStackFrame,
 				String userCodeStackFrame) {
-				int linePartIndex = operatorStackFrame.indexOf('(');
-				String operation = dropPublisherPackagePrefix(linePartIndex > 0 ?
-					operatorStackFrame.substring(0, linePartIndex) :
-					operatorStackFrame);
-
-				String location = "at " + userCodeStackFrame;
-				return new OperatorAssemblyInformation(operatorStackFrame, userCodeStackFrame,
-					operation, location, operation + CALL_SITE_GLUE + location);
+				return new OperatorAssemblyInformation(operatorStackFrame, userCodeStackFrame, null,
+					"at " + userCodeStackFrame, null);
 			}
 
 			String operation() {
+				if (operation == null) {
+					int linePartIndex = operatorStackFrame.indexOf('(');
+					operation = dropPublisherPackagePrefix(linePartIndex > 0 ?
+						operatorStackFrame.substring(0, linePartIndex) :
+						operatorStackFrame);
+				}
 				return operation;
 			}
 
@@ -360,6 +364,10 @@ final class Traces {
 			}
 
 			String description() {
+				if (description == null) {
+					description = operation() + CALL_SITE_GLUE + location;
+				}
+
 				return description;
 			}
 		}
