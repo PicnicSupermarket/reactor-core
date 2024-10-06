@@ -701,7 +701,7 @@ public abstract class Hooks {
 		if (publisher == null) {
 			return null;
 		}
-		return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromStackTraceTail(callSite)));
+		return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromTwoLineStackTrace(callSite)));
 	}
 
 	static <T, P extends Publisher<T>> Publisher<T> addAssemblyInfo(P publisher, AssemblySnapshot stacktrace) {

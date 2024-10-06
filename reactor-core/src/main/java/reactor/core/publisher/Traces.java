@@ -220,54 +220,51 @@ final class Traces {
 	}
 
 	static final class AssemblyInformation {
-		@Nullable
 		private final Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier;
 		@Nullable
 		private OperatorAssemblyInformation cachedOperatorAssemblyInformation;
 
 		private AssemblyInformation(
-			@Nullable Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier,
-			@Nullable OperatorAssemblyInformation cachedOperatorAssemblyInformation) {
+			Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier) {
 			this.operatorAssemblyInformationSupplier = operatorAssemblyInformationSupplier;
-			this.cachedOperatorAssemblyInformation = cachedOperatorAssemblyInformation;
 		}
 
 		static AssemblyInformation empty() {
-			return new AssemblyInformation(null, new OperatorAssemblyInformation(null, null));
+			return new AssemblyInformation(() -> OperatorAssemblyInformation.empty());
 		}
 
 		static AssemblyInformation fromStackFrame(String userCodeStackFrame) {
-			return new AssemblyInformation(null,
-				new OperatorAssemblyInformation(null, userCodeStackFrame));
+			return new AssemblyInformation(
+				() -> OperatorAssemblyInformation.fromStackFrame(userCodeStackFrame));
 		}
 
 		static AssemblyInformation fromStackFrames(String operatorStackFrame,
 			String userCodeStackFrame) {
 			return new AssemblyInformation(
-				null, new OperatorAssemblyInformation(operatorStackFrame, userCodeStackFrame));
+				() -> OperatorAssemblyInformation.fromStackFrames(operatorStackFrame,
+					userCodeStackFrame));
 		}
 
 		// XXX: Document usage.
-		static AssemblyInformation fromStackTraceTail(String source) {
-			return new AssemblyInformation(
-				() -> {
-					int finalNewline = source.indexOf('\n');
-					if (finalNewline < 0) {
-						return new OperatorAssemblyInformation(null, source.trim());
-					}
+		// XXX: Could be optimized further, given assumptions about the Java Agent.
+		static AssemblyInformation fromTwoLineStackTrace(String source) {
+			return new AssemblyInformation(() -> {
+				int finalNewline = source.indexOf('\n');
+				if (finalNewline < 0) {
+					return OperatorAssemblyInformation.fromStackFrame(source.trim());
+				}
 
-					String userCodeStackFrame = source.substring(finalNewline + 1);
-					int penultimateNewline = source.lastIndexOf('\n', finalNewline - 1);
-					String operatorStackFrame = source.substring(
-						penultimateNewline < 0 ? 0 : penultimateNewline + 1, finalNewline);
-					return new OperatorAssemblyInformation(operatorStackFrame.trim(),
-						userCodeStackFrame.trim());
-				}, null);
+				String userCodeStackFrame = source.substring(finalNewline + 1);
+				String operatorStackFrame = source.substring(0, finalNewline);
+				return OperatorAssemblyInformation.fromStackFrames(operatorStackFrame.trim(),
+					userCodeStackFrame.trim());
+			});
 		}
 
 		// XXX: Drop. Use `fromStackFrame`, possibly renamed.
 		static AssemblyInformation fromOperator(String operator) {
-			return new AssemblyInformation(null, new OperatorAssemblyInformation(null, operator));
+			return new AssemblyInformation(
+				() -> OperatorAssemblyInformation.fromStackFrame(operator));
 		}
 
 		@Nullable
@@ -315,40 +312,55 @@ final class Traces {
 			private final String operatorStackFrame;
 			@Nullable
 			private final String userCodeStackFrame;
+			private final String operation;
+			@Nullable
+			private final String location;
+			private final String description;
 
 			OperatorAssemblyInformation(@Nullable String operatorStackFrame,
-				@Nullable String userCodeStackFrame) {
+				@Nullable String userCodeStackFrame, String operation, @Nullable String location,
+				String description) {
 				this.operatorStackFrame = operatorStackFrame;
 				this.userCodeStackFrame = userCodeStackFrame;
+				this.operation = operation;
+				this.location = location;
+				this.description = description;
+			}
+
+			static OperatorAssemblyInformation empty() {
+				return new OperatorAssemblyInformation(null, null,
+					"[no operator assembly information]", null,
+					"[no operator assembly information]");
+			}
+
+			static OperatorAssemblyInformation fromStackFrame(String userCodeStackFrame) {
+				return new OperatorAssemblyInformation(null, userCodeStackFrame, userCodeStackFrame,
+					userCodeStackFrame, userCodeStackFrame);
+			}
+
+			static OperatorAssemblyInformation fromStackFrames(String operatorStackFrame,
+				String userCodeStackFrame) {
+				int linePartIndex = operatorStackFrame.indexOf('(');
+				String operation = dropPublisherPackagePrefix(linePartIndex > 0 ?
+					operatorStackFrame.substring(0, linePartIndex) :
+					operatorStackFrame);
+
+				String location = "at " + userCodeStackFrame;
+				return new OperatorAssemblyInformation(operatorStackFrame, userCodeStackFrame,
+					operation, location, operation + CALL_SITE_GLUE + location);
 			}
 
 			String operation() {
-				if (operatorStackFrame == null) {
-					return userCodeStackFrame != null ?
-						userCodeStackFrame :
-						"[no operator assembly information]";
-				}
-
-				int linePartIndex = operatorStackFrame.indexOf('(');
-				return dropPublisherPackagePrefix(linePartIndex > 0 ?
-					operatorStackFrame.substring(0, linePartIndex) :
-					operatorStackFrame);
+				return operation;
 			}
 
 			@Nullable
 			String location() {
-				return operatorStackFrame != null ? "at " + userCodeStackFrame : userCodeStackFrame;
+				return location;
 			}
 
 			String description() {
-				String location = location();
-				if (location == null) {
-					return "[no operator assembly information]";
-				}
-				String operation = operation();
-				return operation.equals(location) ?
-					location :
-					operation + CALL_SITE_GLUE + location;
+				return description;
 			}
 		}
 	}

@@ -116,11 +116,9 @@ class CallSiteInfoAddingMethodVisitor extends MethodVisitor {
 
             changed.set(true);
 
-            String callSite = String.format(
-                    "%s.%s\n%s.%s(%s:%d)",
-                    owner.replace('/', '.'), name,
-                    currentClassName.replace('/', '.'), currentMethod, currentSource, currentLine
-            );
+            String callSite = owner.replace('/', '.') + '.' + name + '\n'
+                + currentClassName.replace('/', '.') + '.' + currentMethod
+                + '(' + currentSource + ':' + currentLine + ')';
             super.visitLdcInsn(callSite);
             super.visitMethodInsn(
                     Opcodes.INVOKESTATIC,
