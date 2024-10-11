@@ -254,42 +254,34 @@ final class Traces {
 
 		@Nullable
 		String operatorStackFrame() {
-			if (cachedOperatorAssemblyInformation == null) {
-				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
-			}
 			// XXX: Dodgy field access.
-			return cachedOperatorAssemblyInformation.operatorStackFrame;
+			return operatorAssemblyInformation().operatorStackFrame;
 		}
 
 		@Nullable
 		String userCodeStackFrame() {
-			if (cachedOperatorAssemblyInformation == null) {
-				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
-			}
 			// XXX: Dodgy field access.
-			return cachedOperatorAssemblyInformation.userCodeStackFrame;
+			return operatorAssemblyInformation().userCodeStackFrame;
 		}
 
 		@Nullable
 		String location() {
-			if (cachedOperatorAssemblyInformation == null) {
-				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
-			}
-			return cachedOperatorAssemblyInformation.location();
+			return operatorAssemblyInformation().location();
 		}
 
 		String operator() {
-			if (cachedOperatorAssemblyInformation == null) {
-				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
-			}
-			return cachedOperatorAssemblyInformation.operation();
+			return operatorAssemblyInformation().operation();
 		}
 
 		String description() {
+			return operatorAssemblyInformation().description();
+		}
+
+		private OperatorAssemblyInformation operatorAssemblyInformation() {
 			if (cachedOperatorAssemblyInformation == null) {
 				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
 			}
-			return cachedOperatorAssemblyInformation.description();
+			return cachedOperatorAssemblyInformation;
 		}
 
 		private static class OperatorAssemblyInformation {
