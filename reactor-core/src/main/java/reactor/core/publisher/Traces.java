@@ -219,6 +219,7 @@ final class Traces {
 		};
 	}
 
+	// XXX: Collapse.
 	static final class AssemblyInformation {
 		private final Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier;
 		@Nullable
@@ -243,23 +244,6 @@ final class Traces {
 			return new AssemblyInformation(
 				() -> OperatorAssemblyInformation.fromStackFrames(operatorStackFrame,
 					userCodeStackFrame));
-		}
-
-		// XXX: Document usage.
-		// XXX: If an additional `Hook` method is added, then Byte Buddy can pass the two strings in separately.
-		// This way `OperatorAssemblyInformation` creation would not need to be deferred, and `AssemblyInformation` and `OperatorAssemblyInformation` could be merged.
-		static AssemblyInformation fromTwoLineStackTrace(String source) {
-			return new AssemblyInformation(() -> {
-				int finalNewline = source.indexOf('\n');
-				if (finalNewline < 0) {
-					return OperatorAssemblyInformation.fromStackFrame(source.trim());
-				}
-
-				String userCodeStackFrame = source.substring(finalNewline + 1);
-				String operatorStackFrame = source.substring(0, finalNewline);
-				return OperatorAssemblyInformation.fromStackFrames(operatorStackFrame.trim(),
-					userCodeStackFrame.trim());
-			});
 		}
 
 		// XXX: Drop. Use `fromStackFrame`, possibly renamed.

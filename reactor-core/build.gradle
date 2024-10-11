@@ -254,6 +254,7 @@ task japicmp(type: JapicmpTask) {
 	classExcludes = [
 	]
 	methodExcludes = [
+		"reactor.core.publisher.Hooks#addCallSiteInfo(org.reactivestreams.Publisher, java.lang.String, java.lang.String)"
 	]
 }
 

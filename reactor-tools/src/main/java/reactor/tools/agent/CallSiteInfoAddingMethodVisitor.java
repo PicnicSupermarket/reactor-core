@@ -39,7 +39,7 @@ import net.bytebuddy.jar.asm.Type;
  */
 class CallSiteInfoAddingMethodVisitor extends MethodVisitor {
 
-    static final String ADD_CALLSITE_INFO_METHOD = "(Lorg/reactivestreams/Publisher;Ljava/lang/String;)Lorg/reactivestreams/Publisher;";
+    static final String ADD_CALLSITE_INFO_METHOD = "(Lorg/reactivestreams/Publisher;Ljava/lang/String;Ljava/lang/String;)Lorg/reactivestreams/Publisher;";
 
     /**
      * Determine if a class (in the {@code com/package/ClassName} format) can be considered a CorePublisher.
@@ -116,10 +116,11 @@ class CallSiteInfoAddingMethodVisitor extends MethodVisitor {
 
             changed.set(true);
 
-            String callSite = owner.replace('/', '.') + '.' + name + '\n'
-                + currentClassName.replace('/', '.') + '.' + currentMethod
-                + '(' + currentSource + ':' + currentLine + ')';
-            super.visitLdcInsn(callSite);
+            String operatorStackFrame = owner.replace('/', '.') + '.' + name;
+            String userCodeStackFrame = currentClassName.replace('/', '.') + '.'
+                + currentMethod + '(' + currentSource + ':' + currentLine + ')';
+            super.visitLdcInsn(operatorStackFrame);
+            super.visitLdcInsn(userCodeStackFrame);
             super.visitMethodInsn(
                     Opcodes.INVOKESTATIC,
                     "reactor/core/publisher/Hooks",

@@ -695,13 +695,36 @@ public abstract class Hooks {
 	 *
 	 * @deprecated Should only be used by the instrumentation, DOES NOT guarantee any compatibility
 	 */
+	// XXX: Can we just drop this method?
 	@Nullable
 	@Deprecated
 	public static <T, P extends Publisher<T>> Publisher<T> addCallSiteInfo(@Nullable P publisher, String callSite) {
 		if (publisher == null) {
 			return null;
 		}
-		return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromTwoLineStackTrace(callSite)));
+
+		int finalNewline = callSite.indexOf('\n');
+		if (finalNewline < 0) {
+			return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromStackFrame(callSite.trim())));
+		}
+
+		String userCodeStackFrame = callSite.substring(finalNewline + 1);
+		String operatorStackFrame = callSite.substring(0, finalNewline);
+
+		return addCallSiteInfo(publisher, operatorStackFrame.trim(), userCodeStackFrame.trim());
+	}
+
+	/**
+	 *
+	 * @deprecated Should only be used by the instrumentation, DOES NOT guarantee any compatibility
+	 */
+	@Nullable
+	@Deprecated
+	public static <T, P extends Publisher<T>> Publisher<T> addCallSiteInfo(@Nullable P publisher, String operatorStackFrame, String userCodeStackFrame) {
+		if (publisher == null) {
+			return null;
+		}
+		return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromStackFrames(operatorStackFrame, userCodeStackFrame)));
 	}
 
 	static <T, P extends Publisher<T>> Publisher<T> addAssemblyInfo(P publisher, AssemblySnapshot stacktrace) {
