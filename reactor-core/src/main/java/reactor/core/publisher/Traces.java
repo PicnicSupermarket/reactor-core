@@ -221,139 +221,81 @@ final class Traces {
 
 	// XXX: Collapse.
 	static final class AssemblyInformation {
-		private final Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier;
 		@Nullable
-		private OperatorAssemblyInformation cachedOperatorAssemblyInformation;
+		private final String operatorStackFrame;
+		@Nullable
+		private final String userCodeStackFrame;
+		@Nullable
+		private String operation;
+		@Nullable
+		private final String location;
+		@Nullable
+		private String description;
 
-		private AssemblyInformation(
-			Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier) {
-			this.operatorAssemblyInformationSupplier = operatorAssemblyInformationSupplier;
+		AssemblyInformation(@Nullable String operatorStackFrame,
+			@Nullable String userCodeStackFrame, @Nullable String operation,
+			@Nullable String location,
+			@Nullable String description) {
+			this.operatorStackFrame = operatorStackFrame;
+			this.userCodeStackFrame = userCodeStackFrame;
+			this.operation = operation;
+			this.location = location;
+			this.description = description;
 		}
 
 		static AssemblyInformation empty() {
-			return new AssemblyInformation(() -> OperatorAssemblyInformation.empty());
-		}
-
-		static AssemblyInformation fromStackFrame(String userCodeStackFrame) {
-			return new AssemblyInformation(
-				() -> OperatorAssemblyInformation.fromStackFrame(userCodeStackFrame));
-		}
-
-		static AssemblyInformation fromStackFrames(String operatorStackFrame,
-			String userCodeStackFrame) {
-			return new AssemblyInformation(
-				() -> OperatorAssemblyInformation.fromStackFrames(operatorStackFrame,
-					userCodeStackFrame));
+			return new AssemblyInformation(null, null,
+				"[no operator assembly information]", null,
+				"[no operator assembly information]");
 		}
 
 		// XXX: Drop. Use `fromStackFrame`, possibly renamed.
 		static AssemblyInformation fromOperator(String operator) {
-			return new AssemblyInformation(
-				() -> OperatorAssemblyInformation.fromStackFrame(operator));
+			return fromStackFrame(operator);
+		}
+
+		static AssemblyInformation fromStackFrame(String userCodeStackFrame) {
+			return new AssemblyInformation(null, userCodeStackFrame, userCodeStackFrame,
+				userCodeStackFrame, userCodeStackFrame);
+		}
+
+		static AssemblyInformation fromStackFrames(String operatorStackFrame,
+			String userCodeStackFrame) {
+			return new AssemblyInformation(operatorStackFrame, userCodeStackFrame, null,
+				"at " + userCodeStackFrame, null);
 		}
 
 		@Nullable
 		String operatorStackFrame() {
-			if (cachedOperatorAssemblyInformation == null) {
-				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
-			}
-			// XXX: Dodgy field access.
-			return cachedOperatorAssemblyInformation.operatorStackFrame;
+			return operatorStackFrame;
 		}
 
 		@Nullable
 		String userCodeStackFrame() {
-			if (cachedOperatorAssemblyInformation == null) {
-				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
-			}
-			// XXX: Dodgy field access.
-			return cachedOperatorAssemblyInformation.userCodeStackFrame;
+			return userCodeStackFrame;
 		}
 
 		@Nullable
 		String location() {
-			if (cachedOperatorAssemblyInformation == null) {
-				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
-			}
-			return cachedOperatorAssemblyInformation.location();
+			return location;
 		}
 
 		String operator() {
-			if (cachedOperatorAssemblyInformation == null) {
-				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
+			if (operation == null) {
+				int linePartIndex = operatorStackFrame.indexOf('(');
+				operation = dropPublisherPackagePrefix(linePartIndex > 0 ?
+					operatorStackFrame.substring(0, linePartIndex) :
+					operatorStackFrame);
 			}
-			return cachedOperatorAssemblyInformation.operation();
+			return operation;
 		}
 
 		String description() {
-			if (cachedOperatorAssemblyInformation == null) {
-				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
-			}
-			return cachedOperatorAssemblyInformation.description();
-		}
-
-		private static class OperatorAssemblyInformation {
-			@Nullable
-			private final String operatorStackFrame;
-			@Nullable
-			private final String userCodeStackFrame;
-			@Nullable
-			private String operation;
-			@Nullable
-			private final String location;
-			@Nullable
-			private String description;
-
-			OperatorAssemblyInformation(@Nullable String operatorStackFrame,
-				@Nullable String userCodeStackFrame, @Nullable String operation,
-				@Nullable String location,
-				@Nullable String description) {
-				this.operatorStackFrame = operatorStackFrame;
-				this.userCodeStackFrame = userCodeStackFrame;
-				this.operation = operation;
-				this.location = location;
-				this.description = description;
+			if (description == null) {
+				description = operator() + CALL_SITE_GLUE + location;
 			}
 
-			static OperatorAssemblyInformation empty() {
-				return new OperatorAssemblyInformation(null, null,
-					"[no operator assembly information]", null,
-					"[no operator assembly information]");
-			}
-
-			static OperatorAssemblyInformation fromStackFrame(String userCodeStackFrame) {
-				return new OperatorAssemblyInformation(null, userCodeStackFrame, userCodeStackFrame,
-					userCodeStackFrame, userCodeStackFrame);
-			}
-
-			static OperatorAssemblyInformation fromStackFrames(String operatorStackFrame,
-				String userCodeStackFrame) {
-				return new OperatorAssemblyInformation(operatorStackFrame, userCodeStackFrame, null,
-					"at " + userCodeStackFrame, null);
-			}
-
-			String operation() {
-				if (operation == null) {
-					int linePartIndex = operatorStackFrame.indexOf('(');
-					operation = dropPublisherPackagePrefix(linePartIndex > 0 ?
-						operatorStackFrame.substring(0, linePartIndex) :
-						operatorStackFrame);
-				}
-				return operation;
-			}
-
-			@Nullable
-			String location() {
-				return location;
-			}
-
-			String description() {
-				if (description == null) {
-					description = operation() + CALL_SITE_GLUE + location;
-				}
-
-				return description;
-			}
+			return description;
 		}
 	}
 }
