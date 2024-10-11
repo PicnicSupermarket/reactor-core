@@ -221,81 +221,139 @@ final class Traces {
 
 	// XXX: Collapse.
 	static final class AssemblyInformation {
+		private final Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier;
 		@Nullable
-		private final String operatorStackFrame;
-		@Nullable
-		private final String userCodeStackFrame;
-		@Nullable
-		private String operation;
-		@Nullable
-		private final String location;
-		@Nullable
-		private String description;
+		private OperatorAssemblyInformation cachedOperatorAssemblyInformation;
 
-		AssemblyInformation(@Nullable String operatorStackFrame,
-			@Nullable String userCodeStackFrame, @Nullable String operation,
-			@Nullable String location,
-			@Nullable String description) {
-			this.operatorStackFrame = operatorStackFrame;
-			this.userCodeStackFrame = userCodeStackFrame;
-			this.operation = operation;
-			this.location = location;
-			this.description = description;
+		private AssemblyInformation(
+			Supplier<OperatorAssemblyInformation> operatorAssemblyInformationSupplier) {
+			this.operatorAssemblyInformationSupplier = operatorAssemblyInformationSupplier;
 		}
 
 		static AssemblyInformation empty() {
-			return new AssemblyInformation(null, null,
-				"[no operator assembly information]", null,
-				"[no operator assembly information]");
-		}
-
-		// XXX: Drop. Use `fromStackFrame`, possibly renamed.
-		static AssemblyInformation fromOperator(String operator) {
-			return fromStackFrame(operator);
+			return new AssemblyInformation(() -> OperatorAssemblyInformation.empty());
 		}
 
 		static AssemblyInformation fromStackFrame(String userCodeStackFrame) {
-			return new AssemblyInformation(null, userCodeStackFrame, userCodeStackFrame,
-				userCodeStackFrame, userCodeStackFrame);
+			return new AssemblyInformation(
+				() -> OperatorAssemblyInformation.fromStackFrame(userCodeStackFrame));
 		}
 
 		static AssemblyInformation fromStackFrames(String operatorStackFrame,
 			String userCodeStackFrame) {
-			return new AssemblyInformation(operatorStackFrame, userCodeStackFrame, null,
-				"at " + userCodeStackFrame, null);
+			return new AssemblyInformation(
+				() -> OperatorAssemblyInformation.fromStackFrames(operatorStackFrame,
+					userCodeStackFrame));
+		}
+
+		// XXX: Drop. Use `fromStackFrame`, possibly renamed.
+		static AssemblyInformation fromOperator(String operator) {
+			return new AssemblyInformation(
+				() -> OperatorAssemblyInformation.fromStackFrame(operator));
 		}
 
 		@Nullable
 		String operatorStackFrame() {
-			return operatorStackFrame;
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
+			}
+			// XXX: Dodgy field access.
+			return cachedOperatorAssemblyInformation.operatorStackFrame;
 		}
 
 		@Nullable
 		String userCodeStackFrame() {
-			return userCodeStackFrame;
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
+			}
+			// XXX: Dodgy field access.
+			return cachedOperatorAssemblyInformation.userCodeStackFrame;
 		}
 
 		@Nullable
 		String location() {
-			return location;
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
+			}
+			return cachedOperatorAssemblyInformation.location();
 		}
 
 		String operator() {
-			if (operation == null) {
-				int linePartIndex = operatorStackFrame.indexOf('(');
-				operation = dropPublisherPackagePrefix(linePartIndex > 0 ?
-					operatorStackFrame.substring(0, linePartIndex) :
-					operatorStackFrame);
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
 			}
-			return operation;
+			return cachedOperatorAssemblyInformation.operation();
 		}
 
 		String description() {
-			if (description == null) {
-				description = operator() + CALL_SITE_GLUE + location;
+			if (cachedOperatorAssemblyInformation == null) {
+				cachedOperatorAssemblyInformation = operatorAssemblyInformationSupplier.get();
+			}
+			return cachedOperatorAssemblyInformation.description();
+		}
+
+		private static class OperatorAssemblyInformation {
+			@Nullable
+			private final String operatorStackFrame;
+			@Nullable
+			private final String userCodeStackFrame;
+			@Nullable
+			private String operation;
+			@Nullable
+			private final String location;
+			@Nullable
+			private String description;
+
+			OperatorAssemblyInformation(@Nullable String operatorStackFrame,
+				@Nullable String userCodeStackFrame, @Nullable String operation,
+				@Nullable String location,
+				@Nullable String description) {
+				this.operatorStackFrame = operatorStackFrame;
+				this.userCodeStackFrame = userCodeStackFrame;
+				this.operation = operation;
+				this.location = location;
+				this.description = description;
 			}
 
-			return description;
+			static OperatorAssemblyInformation empty() {
+				return new OperatorAssemblyInformation(null, null,
+					"[no operator assembly information]", null,
+					"[no operator assembly information]");
+			}
+
+			static OperatorAssemblyInformation fromStackFrame(String userCodeStackFrame) {
+				return new OperatorAssemblyInformation(null, userCodeStackFrame, userCodeStackFrame,
+					userCodeStackFrame, userCodeStackFrame);
+			}
+
+			static OperatorAssemblyInformation fromStackFrames(String operatorStackFrame,
+				String userCodeStackFrame) {
+				return new OperatorAssemblyInformation(operatorStackFrame, userCodeStackFrame, null,
+					"at " + userCodeStackFrame, null);
+			}
+
+			String operation() {
+				if (operation == null) {
+					int linePartIndex = operatorStackFrame.indexOf('(');
+					operation = dropPublisherPackagePrefix(linePartIndex > 0 ?
+						operatorStackFrame.substring(0, linePartIndex) :
+						operatorStackFrame);
+				}
+				return operation;
+			}
+
+			@Nullable
+			String location() {
+				return location;
+			}
+
+			String description() {
+				if (description == null) {
+					description = operation() + CALL_SITE_GLUE + location;
+				}
+
+				return description;
+			}
 		}
 	}
 }
