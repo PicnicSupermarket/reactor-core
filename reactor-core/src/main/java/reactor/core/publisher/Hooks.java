@@ -22,6 +22,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import java.util.function.Supplier;
 import org.reactivestreams.Publisher;
 
 import reactor.core.Exceptions;
@@ -705,7 +706,7 @@ public abstract class Hooks {
 
 		int finalNewline = callSite.indexOf('\n');
 		if (finalNewline < 0) {
-			return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromStackFrame(callSite.trim())));
+			return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromStackFrame(callSite::trim)));
 		}
 
 		String userCodeStackFrame = callSite.substring(finalNewline + 1);
@@ -724,7 +725,7 @@ public abstract class Hooks {
 		if (publisher == null) {
 			return null;
 		}
-		return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromStackFrames(operatorStackFrame, userCodeStackFrame)));
+		return addAssemblyInfo(publisher, new AssemblySnapshot(AssemblyInformation.fromStackFrames(() -> operatorStackFrame, () -> userCodeStackFrame)));
 	}
 
 	static <T, P extends Publisher<T>> Publisher<T> addAssemblyInfo(P publisher, AssemblySnapshot stacktrace) {

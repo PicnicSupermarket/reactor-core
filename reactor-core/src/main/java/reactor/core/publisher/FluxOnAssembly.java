@@ -205,7 +205,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 
 		CheckpointLightSnapshot(@Nullable String description) {
 			super(true, description, null);
-			this.cached = AssemblyInformation.fromOperator("checkpoint(\"" + (description == null ? "" : description) + "\")");
+			this.cached = AssemblyInformation.fromOperator(() -> "checkpoint(\"" + (description == null ? "" : description) + "\")");
 		}
 
 		@Override
@@ -245,7 +245,7 @@ final class FluxOnAssembly<T> extends InternalFluxOperator<T, T> implements Fuse
 
 		MethodReturnSnapshot(String method) {
 			super(false, method, null);
-			cached = AssemblyInformation.fromOperator(method);
+			cached = AssemblyInformation.fromOperator(() -> method);
 		}
 
 		@Override

@@ -81,7 +81,7 @@ final class CallSiteSupplierFactory implements Supplier<Supplier<AssemblyInforma
 		}
 
 		if (stack.length == 1) {
-			return () -> AssemblyInformation.fromStackFrame(stack[0].toString());
+			return () -> AssemblyInformation.fromStackFrame(stack[0]::toString);
 		}
 
 		return () -> {
@@ -99,10 +99,10 @@ final class CallSiteSupplierFactory implements Supplier<Supplier<AssemblyInforma
 						continue;
 					}
 				}
-				return AssemblyInformation.fromStackFrames(previous.toString(), stack[stack.length - 1].toString());
+				return AssemblyInformation.fromStackFrames(previous::toString, stack[stack.length - 1]::toString);
 			}
 
-			return AssemblyInformation.fromStackFrame(stack[stack.length - 1].toString());
+			return AssemblyInformation.fromStackFrame(stack[stack.length - 1]::toString);
 		};
 	}
 }

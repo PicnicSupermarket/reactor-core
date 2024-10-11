@@ -100,10 +100,10 @@ class CallSiteSupplierFactory implements Supplier<Supplier<AssemblyInformation>>
 					String className = e.getClassName();
 					if (isUserCode(className)) {
 						if (previousElement == null) {
-							return AssemblyInformation.fromStackFrame(e.toString());
+							return AssemblyInformation.fromStackFrame(e::toString);
 						}
 
-						return AssemblyInformation.fromStackFrames(previousElement.toString(), e.toString());
+						return AssemblyInformation.fromStackFrames(previousElement::toString, e::toString);
 					}
 					else {
 						if (!full) {
@@ -147,10 +147,10 @@ class CallSiteSupplierFactory implements Supplier<Supplier<AssemblyInformation>>
 					String className = e.getClassName();
 					if (isUserCode(className)) {
 						if (previousElement == null) {
-							return AssemblyInformation.fromStackFrame(e.toString());
+							return AssemblyInformation.fromStackFrame(e::toString);
 						}
 
-						return AssemblyInformation.fromStackFrames(previousElement.toString(), e.toString());
+						return AssemblyInformation.fromStackFrames(previousElement::toString, e::toString);
 					}
 					else {
 						if (!full) {

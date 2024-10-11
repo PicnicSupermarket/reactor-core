@@ -234,22 +234,22 @@ final class Traces {
 			return new AssemblyInformation(() -> OperatorAssemblyInformation.empty());
 		}
 
-		static AssemblyInformation fromStackFrame(String userCodeStackFrame) {
+		static AssemblyInformation fromStackFrame(Supplier<String> userCodeStackFrame) {
 			return new AssemblyInformation(
-				() -> OperatorAssemblyInformation.fromStackFrame(userCodeStackFrame));
+				() -> OperatorAssemblyInformation.fromStackFrame(userCodeStackFrame.get()));
 		}
 
-		static AssemblyInformation fromStackFrames(String operatorStackFrame,
-			String userCodeStackFrame) {
+		static AssemblyInformation fromStackFrames(Supplier<String> operatorStackFrame,
+			Supplier<String> userCodeStackFrame) {
 			return new AssemblyInformation(
-				() -> OperatorAssemblyInformation.fromStackFrames(operatorStackFrame,
-					userCodeStackFrame));
+				() -> OperatorAssemblyInformation.fromStackFrames(operatorStackFrame.get(),
+					userCodeStackFrame.get()));
 		}
 
 		// XXX: Drop. Use `fromStackFrame`, possibly renamed.
-		static AssemblyInformation fromOperator(String operator) {
+		static AssemblyInformation fromOperator(Supplier<String> operator) {
 			return new AssemblyInformation(
-				() -> OperatorAssemblyInformation.fromStackFrame(operator));
+				() -> OperatorAssemblyInformation.fromStackFrame(operator.get()));
 		}
 
 		@Nullable
